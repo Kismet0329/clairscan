@@ -1,5 +1,4 @@
 import markdown
-import pdfkit
 from pathlib import Path
 from ai_core.deepseek_client import DeepSeekClient
 
@@ -12,7 +11,8 @@ async def generate_report(vulns: list, client: DeepSeekClient = None) -> str:
     return md
 
 def markdown_to_pdf(md_text: str, output_path: str):
-    """使用 pdfkit 将 Markdown 转换为 PDF，无需 GTK"""
+    # 延迟导入 pdfkit，避免 Celery 启动时加载
+    import pdfkit
     html = markdown.markdown(md_text, extensions=['tables', 'fenced_code'])
     full_html = f"""
 <html>
