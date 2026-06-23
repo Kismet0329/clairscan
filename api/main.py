@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uuid
-from typing import Optional
 
 # Celery 相关导入
 from tasks.scanner_task import app as celery_app, scan_targets
@@ -47,13 +46,20 @@ async def create_scan(req: ScanRequest):
     task_id = str(uuid.uuid4())[:8]
     task = scan_targets.delay(req.targets)
     tasks_db[task_id] = task.id
-    return {"task_id": task_id, "celery_id": task.id}
+    return {
+        "task_id": task_id,
+        "celery_id": task.id,
+        "message": f"扫描已启动，请使用 GET /scan/{task_id} 或 GET /scan/{task.id} 查询结果"
+    }
 
 @app.get("/scan/{task_id}")
 async def get_scan(task_id: str):
+    # 先尝试从内存字典中查找短ID
     celery_id = tasks_db.get(task_id)
     if not celery_id:
-        return {"error": "Task not found"}
+        # 如果找不到，认为 task_id 本身就是 Celery 任务 ID（UUID格式）
+        celery_id = task_id
+
     result = celery_app.AsyncResult(celery_id)
     if result.ready():
         return {"status": "completed", "result": result.result}
